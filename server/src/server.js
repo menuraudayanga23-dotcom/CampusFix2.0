@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import connectDatabase from "./config/db.js";
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
     message: "Backend is healthy",
+    database: "connected",
     timestamp: new Date().toISOString()
   });
 });
@@ -31,6 +33,17 @@ app.use((req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`CampusFix2.0 server running on http://localhost:${PORT}` );
-});
+const startServer = async () => {
+  try {
+    await connectDatabase();
+
+    app.listen(PORT, () => {
+      console.log(`CampusFix2.0 server running on http://localhost:${PORT}` );
+    });
+  } catch (error) {
+    console.error("Server startup failed.");
+    process.exit(1);
+  }
+};
+
+startServer();
