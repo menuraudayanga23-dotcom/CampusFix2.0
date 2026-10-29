@@ -35,15 +35,16 @@ The local connection string is:
 ```env
 MONGO_URI=mongodb://127.0.0.1:27017/campusfix2
 
-## Read endpoints
+## Run the frontend
 
-List all reports:
+Open PowerShell in the `client` folder:
+
+```powershell
+npm install
+npm run dev
+## Create report workflow
+
+The React frontend submits new reports through:
 
 ```text
-GET /api/reports
-## Update and delete endpoints
-
-Update an existing report:
-
-```text
-PUT /api/reports/:id
+POST /api/reports
