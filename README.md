@@ -26,3 +26,24 @@ Open PowerShell in the `server` folder:
 ```powershell
 npm install
 npm run dev
+## Database
+
+CampusFix2.0 uses MongoDB Community Server locally.
+
+The local connection string is:
+
+```env
+MONGO_URI=mongodb://127.0.0.1:27017/campusfix2
+
+## Read endpoints
+
+List all reports:
+
+```text
+GET /api/reports
+## Update and delete endpoints
+
+Update an existing report:
+
+```text
+PUT /api/reports/:id
