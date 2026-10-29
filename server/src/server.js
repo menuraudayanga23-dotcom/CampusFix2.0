@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDatabase from "./config/db.js";
+import reportRoutes from "./routes/reportRoutes.js";
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+app.use("/api/reports", reportRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
@@ -32,6 +34,7 @@ app.use((req, res) => {
     message: "Route not found"
   });
 });
+
 
 const startServer = async () => {
   try {
