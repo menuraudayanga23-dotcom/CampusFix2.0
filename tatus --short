@@ -1,0 +1,5 @@
+[33m0519100[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m chore: update server dependencies
+[33m4bbb783[m Frontend initializing ,create report from api and else
+[33me26d01d[m feat: implement report update and deletion
+[33mf09b2b8[m feat: implement infrastructure report creation
+[33mdd8e837[m feat: connect MongoDB and define Mongoose schemas

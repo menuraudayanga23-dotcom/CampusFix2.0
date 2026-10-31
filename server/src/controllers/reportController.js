@@ -1,8 +1,49 @@
 import mongoose from "mongoose";
 import InfrastructureReport from "../models/InfrastructureReport.js";
 
+const allowedSortFields = {
+  title: "title",
+  priority: "priority",
+  status: "status",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt"
+};
+
+const editableReportFields = [
+  "title",
+  "description",
+  "category",
+  "building",
+  "location",
+  "priority",
+  "status",
+  "photo"
+];
+
+const escapeRegex = (value) => {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+};
+
+const isAdministrator = (user) => {
+  return user.role === "administrator";
+};
+
+const canAccessReport = (report, user) => {
+  return (
+    isAdministrator(user) ||
+    report.reporter.toString() === user._id.toString()
+  );
+};
+
 export const createReport = async (req, res) => {
   try {
+    if (!req.user) {
+  return res.status(401).json({
+    success: false,
+    message: "You must log in to create a report"
+  });
+}
+
     const {
       title,
       description,
@@ -11,23 +52,8 @@ export const createReport = async (req, res) => {
       location,
       priority,
       status,
-      reporter,
       photo
     } = req.body;
-
-    if (!reporter) {
-      return res.status(400).json({
-        success: false,
-        message: "Reporter is required"
-      });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(reporter)) {
-      return res.status(400).json({
-        success: false,
-        message: "Reporter must be a valid user ID"
-      });
-    }
 
     const report = await InfrastructureReport.create({
       title,
@@ -37,8 +63,8 @@ export const createReport = async (req, res) => {
       location,
       priority,
       status,
-      reporter,
-      photo
+      photo,
+      reporter: req.user._id
     });
 
     const populatedReport = await report.populate(
@@ -67,13 +93,6 @@ export const createReport = async (req, res) => {
       });
     }
 
-    if (error.name === "CastError") {
-      return res.status(400).json({
-        success: false,
-        message: "One of the submitted values has an invalid format"
-      });
-    }
-
     console.error("Create report error:", error);
 
     return res.status(500).json({
@@ -83,37 +102,35 @@ export const createReport = async (req, res) => {
   }
 };
 
-
-
-const allowedSortFields = {
-  title: "title",
-  priority: "priority",
-  status: "status",
-  createdAt: "createdAt",
-  updatedAt: "updatedAt"
-};
-
-const escapeRegex = (value) => {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-};
-
 export const listReports = async (req, res) => {
   try {
+    if (!req.user) {
+  return res.status(401).json({
+    success: false,
+    message: "You must log in to view reports"
+  });
+}
+
     const {
       search = "",
       category,
       priority,
       status,
-      reporter,
       sortBy = "createdAt",
       order = "desc"
     } = req.query;
 
     const filters = {};
 
+    if (!isAdministrator(req.user)) {
+      filters.reporter = req.user._id;
+    }
+
     if (search.trim()) {
-      const safeSearch = escapeRegex(search.trim());
-      const searchPattern = new RegExp(safeSearch, "i");
+      const searchPattern = new RegExp(
+        escapeRegex(search.trim()),
+        "i"
+      );
 
       filters.$or = [
         { title: searchPattern },
@@ -123,28 +140,9 @@ export const listReports = async (req, res) => {
       ];
     }
 
-    if (category) {
-      filters.category = category;
-    }
-
-    if (priority) {
-      filters.priority = priority;
-    }
-
-    if (status) {
-      filters.status = status;
-    }
-
-    if (reporter) {
-      if (!mongoose.Types.ObjectId.isValid(reporter)) {
-        return res.status(400).json({
-          success: false,
-          message: "Reporter must be a valid user ID"
-        });
-      }
-
-      filters.reporter = reporter;
-    }
+    if (category) filters.category = category;
+    if (priority) filters.priority = priority;
+    if (status) filters.status = status;
 
     const selectedSortField =
       allowedSortFields[sortBy] || allowedSortFields.createdAt;
@@ -153,23 +151,12 @@ export const listReports = async (req, res) => {
 
     const reports = await InfrastructureReport.find(filters)
       .populate("reporter", "name email role")
-      .sort({
-        [selectedSortField]: sortDirection
-      })
+      .sort({ [selectedSortField]: sortDirection })
       .lean();
 
     return res.status(200).json({
       success: true,
       count: reports.length,
-      filters: {
-        search,
-        category: category || null,
-        priority: priority || null,
-        status: status || null,
-        reporter: reporter || null,
-        sortBy: selectedSortField,
-        order: sortDirection === 1 ? "asc" : "desc"
-      },
       data: reports
     });
   } catch (error) {
@@ -204,6 +191,13 @@ export const getReportById = async (req, res) => {
       });
     }
 
+    if (!canAccessReport(report, req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot access this report"
+      });
+    }
+
     return res.status(200).json({
       success: true,
       data: report
@@ -217,16 +211,6 @@ export const getReportById = async (req, res) => {
     });
   }
 };
-const editableReportFields = [
-  "title",
-  "description",
-  "category",
-  "building",
-  "location",
-  "priority",
-  "status",
-  "photo"
-];
 
 export const updateReport = async (req, res) => {
   try {
@@ -236,6 +220,22 @@ export const updateReport = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Report ID is invalid"
+      });
+    }
+
+    const existingReport = await InfrastructureReport.findById(id);
+
+    if (!existingReport) {
+      return res.status(404).json({
+        success: false,
+        message: "Report not found"
+      });
+    }
+
+    if (!canAccessReport(existingReport, req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot update this report"
       });
     }
 
@@ -265,13 +265,6 @@ export const updateReport = async (req, res) => {
       .populate("reporter", "name email role")
       .lean();
 
-    if (!updatedReport) {
-      return res.status(404).json({
-        success: false,
-        message: "Report not found"
-      });
-    }
-
     return res.status(200).json({
       success: true,
       message: "Infrastructure report updated successfully",
@@ -279,24 +272,13 @@ export const updateReport = async (req, res) => {
     });
   } catch (error) {
     if (error.name === "ValidationError") {
-      const validationErrors = Object.values(error.errors).map(
-        (validationError) => ({
-          field: validationError.path,
-          message: validationError.message
-        })
-      );
-
       return res.status(400).json({
         success: false,
         message: "Report validation failed",
-        errors: validationErrors
-      });
-    }
-
-    if (error.name === "CastError") {
-      return res.status(400).json({
-        success: false,
-        message: "One of the submitted values has an invalid format"
+        errors: Object.values(error.errors).map((item) => ({
+          field: item.path,
+          message: item.message
+        }))
       });
     }
 
@@ -305,6 +287,49 @@ export const updateReport = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "The report could not be updated"
+    });
+  }
+};
+
+export const deleteReport = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Report ID is invalid"
+      });
+    }
+
+    const existingReport = await InfrastructureReport.findById(id);
+
+    if (!existingReport) {
+      return res.status(404).json({
+        success: false,
+        message: "Report not found"
+      });
+    }
+
+    if (!canAccessReport(existingReport, req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot delete this report"
+      });
+    }
+
+    await InfrastructureReport.findByIdAndDelete(id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Infrastructure report deleted successfully"
+    });
+  } catch (error) {
+    console.error("Delete report error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "The report could not be deleted"
     });
   }
 };

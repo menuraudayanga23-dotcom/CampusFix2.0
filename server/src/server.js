@@ -1,7 +1,9 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import connectDatabase from "./config/db.js";
+import authRoutes from "./routes/authRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 
 dotenv.config();
@@ -9,8 +11,15 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true
+  })
+);
+
 app.use(express.json());
+app.use(cookieParser());
 
 app.get("/", (req, res) => {
   res.json({
@@ -26,6 +35,8 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+app.use("/api/auth", authRoutes);
 app.use("/api/reports", reportRoutes);
 
 app.use((req, res) => {
@@ -35,16 +46,19 @@ app.use((req, res) => {
   });
 });
 
-
 const startServer = async () => {
   try {
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is missing from server/.env");
+    }
+
     await connectDatabase();
 
     app.listen(PORT, () => {
       console.log(`CampusFix2.0 server running on http://localhost:${PORT}` );
     });
   } catch (error) {
-    console.error("Server startup failed.");
+    console.error("Server startup failed:", error.message);
     process.exit(1);
   }
 };

@@ -8,7 +8,7 @@ const initialForm = {
   building: "",
   location: "",
   priority: "Medium",
-  reporter: ""
+
 };
 
 const categories = [
@@ -80,12 +80,7 @@ function ReportForm() {
       });
     }
 
-    if (!formData.reporter.trim()) {
-      errors.push({
-        field: "reporter",
-        message: "Reporter ID is required for this milestone."
-      });
-    }
+  
 
     return errors;
   };
@@ -113,7 +108,7 @@ function ReportForm() {
         building: formData.building.trim(),
         location: formData.location.trim(),
         priority: formData.priority,
-        reporter: formData.reporter.trim()
+       
       });
 
       setSuccessMessage(
@@ -184,19 +179,25 @@ function ReportForm() {
           />
           <span className="field-help">Use a short, clear title.</span>
         </div>
+<div className="form-field form-field--wide">
+  <label htmlFor="description">Detailed description</label>
 
-        <div className="form-field form-field--wide">
-          <label htmlFor="description">Detailed description</label>
-          <textarea
-            id="description"
-            name="description"
-            rows="5"
-            value={formData.description}
-            onChange={handleChange}
-            placeholder="Explain what is damaged and why it needs attention."
-            aria-invalid={Boolean(getFieldError("description"))}
-          />
-        </div>
+  <textarea
+    id="description"
+    name="description"
+    rows="5"
+    value={formData.description}
+    onChange={handleChange}
+    placeholder="Explain what is damaged and why it needs attention."
+    aria-invalid={Boolean(getFieldError("description"))}
+  />
+
+  <span className="field-help">
+    Please provide at least 10 characters.
+  </span>
+</div>
+
+       
 
         <div className="form-field">
           <label htmlFor="category">Category</label>
@@ -256,22 +257,6 @@ function ReportForm() {
             placeholder="Example: Room E204, front window"
             aria-invalid={Boolean(getFieldError("location"))}
           />
-        </div>
-
-        <div className="form-field form-field--wide">
-          <label htmlFor="reporter">Reporter ID</label>
-          <input
-            id="reporter"
-            name="reporter"
-            type="text"
-            value={formData.reporter}
-            onChange={handleChange}
-            placeholder="Paste the MongoDB User _id"
-            aria-invalid={Boolean(getFieldError("reporter"))}
-          />
-          <span className="field-help">
-            Temporary field until authentication is implemented.
-          </span>
         </div>
 
         <div className="form-actions form-field--wide">
